@@ -1,0 +1,11 @@
+*.jpg
+*.pt
+*.th
+*.pickle
+*.mp4
+
+celeba/*
+__pycache__/*
+runs/*
+.ipynb_checkpoints/*
+wikitext2/*
