@@ -85,9 +85,9 @@ class ConvNet(nn.Module):
     def forward(self, x, debug=False):
         h = x
         for i, lay in enumerate(self.layers[:-1]):
+            h = lay(h)
             if debug:
                 print(i, h.shape)
-            h = lay(h)
         h = self.layers[-1](h)
         if debug:
             print("last shape from convnet", h.shape)
@@ -134,9 +134,9 @@ class ConvTransposeNet(nn.Module):
     def forward(self, x, debug=False):
         h = x
         for i, lay in enumerate(self.layers[:-1]):
+            h = lay(h)
             if debug:
                 print(i, h.shape)
-            h = lay(h)
         h = self.layers[-1](h)
         if debug:
             print(h.shape, "last shape from transposenet")

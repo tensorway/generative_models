@@ -1,4 +1,5 @@
 #%%
+from utils import save, load
 import numpy as np
 import torch as th
 from torchvision import datasets, transforms
@@ -6,6 +7,9 @@ from torch.utils.tensorboard import SummaryWriter
 from models import ConvVAE
 from utils import loss_function_MSE_vae
 import matplotlib.pyplot as plt
+from utils import plot_sampled_x_and_gen
+import random
+
 
 transform=transforms.Compose([
         transforms.ToTensor(),
@@ -23,16 +27,16 @@ train_loader = th.utils.data.DataLoader(dataset1, batch_size=12, shuffle=True)
 test_loader = th.utils.data.DataLoader(dataset2)
 
 device = th.device('cuda')
+
 #%%
+# get sample from dataset
 for batch in train_loader:
     break
 tensors2img = lambda x: detransform(x[0][0].cpu()).transpose(0, -1).transpose(-3, -2).numpy()
 plt.imshow(tensors2img(batch))
+
 #%%
-from utils import save, load
-load(model, "celeba_vae_100_model", 0, 0)
-load(opt, "celeba_vae_100_opt", 0, 0)
-#%%
+# init the model and the optimizer
 x = "nothing"
 encoder_arch = [
     #pool, pad before transform, out channels
@@ -53,29 +57,11 @@ decoder_arch = [
     [2, 1, 16],
     [1, 1, 3]
 ]
-try:
-    del batch
-    del img
-    del model
-except:
-    pass
 model = ConvVAE(encoder_arch, decoder_arch, pre_z_shape=(128, 14, 12), z_size=100, post_z_shape=(128, 14, 12), last_activation=lambda x: x).to(device)
-# model.load_state_dict(th.load("model_cnn_vae_2.pt"))
-#%%
 opt = th.optim.Adam(model.parameters(), lr=3e-5)
+# model.load_state_dict(th.load("model_cnn_vae_2.pt"))
 
 #%%
-out = model(batch[0].to(device), debug=True)
-out[0].shape
-# %%
-try:
-    del img
-    del pred_img
-    del loss
-    del loss_like
-    del loss_kl
-except:
-    print("nothing to del")
 writer = SummaryWriter()
 nepoch = 20
 epsilon = 1e-9
@@ -104,26 +90,14 @@ for ep in range(0, nepoch):
 
 
 #%%
-#%%
+# generate a random image from the latent vector
 latent = th.tensor([[-0.1, -0.9]]).to(device)
 pimg, _ = model(latent, all=False, std_randn=0.0)
 toplot = pimg.cpu().detach().numpy()[0, 0, :28, :28]
 plt.imshow(toplot)
 
 # %%3
-from utils import plot_sampled_x_and_gen
-import random
-def plot_sampled_x_and_gen(model, dataset, device=th.device('cpu'),  dataset2img = lambda x: x[0], detransform= lambda x:x):
-    randi = random.randint(0, len(dataset)-1)
-    img = dataset2img( dataset[randi] )
-    img = img.unsqueeze(0).to(device)
-    pimg, other = model.to(device)(img, std_randn=0)
-    pimg, img = detransform(pimg[0].cpu()), detransform(img[0].cpu())
-    toplot = th.cat((img, pimg[:, :img.shape[-2], :img.shape[-1]]), dim=2).detach().numpy()
-    if toplot.shape[0] == 3:
-        toplot = toplot.transpose(1, 2, 0)
-    plt.imshow(toplot)
-    return toplot, other 
+
 _ = plot_sampled_x_and_gen(model, dataset1, detransform=detransform)
 #%%
 vals = []

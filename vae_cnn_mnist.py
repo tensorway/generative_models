@@ -5,8 +5,8 @@ from torchvision import datasets, transforms
 from torch.utils.tensorboard import SummaryWriter
 from models import ConvVAE
 import matplotlib.pyplot as plt
-from utils import loss_function_vae
-
+from utils import loss_function_BCE_vae as loss_function
+import random
 
 transform=transforms.Compose([
         transforms.ToTensor(),
@@ -18,7 +18,7 @@ dataset2 = datasets.MNIST('../data', train=False,               transform=transf
 train_loader = th.utils.data.DataLoader(dataset1, batch_size=32, shuffle=False)
 test_loader = th.utils.data.DataLoader(dataset2)
 
-device = th.device('cuda')
+device = th.device('cpu')
 
 #%%
 x = "nothing"
@@ -30,7 +30,7 @@ encoder_arch = [
     [2, 0, 64],
     [1, 0, 64],
     [2, 0, 32],
-    # [1, 0, 32]
+    # [2, 0, 32]
 ]
 decoder_arch = [
     [x, x, 32],
@@ -40,7 +40,7 @@ decoder_arch = [
     [1, 1, 1]
 ]
 model = ConvVAE(encoder_arch, decoder_arch, pre_z_shape=(32, 4, 4), z_size=2, post_z_shape=(32, 4, 4)).to(device)
-model.load_state_dict(th.load("model_cnn_vae_2.pt"))
+# model.load_state_dict(th.load("pretrained_models/model_cnn_vae_2.pt"))
 opt = th.optim.Adam(model.parameters(), lr=3e-4)
 
 # %%
@@ -52,7 +52,7 @@ for ep in range(0, nepoch):
         img = img.to(device)
         pred_img, (m, log_std) = model(img)
 
-        loss, (loss_like, loss_kl) = loss_function_vae(pred_img[:, :, :28, :28], img, m, log_std, 0.01)
+        loss, (loss_like, loss_kl) = loss_function(pred_img[:, :, :28, :28], img, m, log_std, 0.01)
         opt.zero_grad()
         loss.backward()
         opt.step()
@@ -65,20 +65,25 @@ for ep in range(0, nepoch):
 
 #
 #%%
-latent = th.tensor([[-0.1, -0.9]]).to(device)
+# generate a sample image from the sampled latent vector
+latent = th.tensor([[0.5, -0.0]]).to(device)
 pimg, _ = model(latent, all=False, std_randn=0.0)
 toplot = pimg.cpu().detach().numpy()[0, 0, :28, :28]
 plt.imshow(toplot)
 
 # %%
+# get 10 random images from the dataset and their 
+# mean and std 
+# it will be used for morphing between them
 vals = []
 for i in range(10):
     ri = random.randint(0, len(dataset2)-1)
     sample = dataset2[ri][0].unsqueeze(0).to(device)
-    _, (mu, std) = model(sample)
+    _, (mu, std) = model(sample, debug=True)
     vals.append((mu, std))
 #%%
-## morph between two random
+## morph between two random images 
+# collected from the previous cell 
 import cv2
 niter = 1000
 a = vals[random.randint(0, len(vals)-1)]
@@ -87,13 +92,13 @@ for i in range(niter):
     alpha = i/niter
     mu = a[0]*alpha + b[0]*(1-alpha)
     pimg = model(mu, all=False, std_randn=0.0)[0].cpu().detach().numpy()
-    cv2.imshow('slika', pimg[0, 0])
+    cv2.imshow('img', pimg[0, 0])
     key = cv2.waitKey(1)
 cv2.destroyAllWindows()
 
 # %%
-# loop morph
-
+# morph between all 10 randomly choosen images 
+# and make a mp4 out of it
 niter = 500
 frames = []
 for iitem, (a, b) in enumerate(zip(vals, vals[1:]+vals[:1])):
@@ -105,9 +110,9 @@ for iitem, (a, b) in enumerate(zip(vals, vals[1:]+vals[:1])):
         # key = cv2.waitKey(1)
         frames.append(pimg)
 cv2.destroyAllWindows()
-# %%
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter(str(random.random())+".mp4", fourcc, 30, (28, 28))
+
 #and write your frames in a loop if you want
 for i, frame in enumerate(frames):
     out.write((frame*255).astype(np.uint8))

@@ -42,6 +42,17 @@ def dir_create(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
+def plot_sampled_x_and_gen(model, dataset, device=th.device('cpu'),  dataset2img = lambda x: x[0], detransform= lambda x:x):
+    randi = random.randint(0, len(dataset)-1)
+    img = dataset2img( dataset[randi] )
+    img = img.unsqueeze(0).to(device)
+    pimg, other = model.to(device)(img, std_randn=0)
+    pimg, img = detransform(pimg[0].cpu()), detransform(img[0].cpu())
+    toplot = th.cat((img, pimg[:, :img.shape[-2], :img.shape[-1]]), dim=2).detach().numpy()
+    if toplot.shape[0] == 3:
+        toplot = toplot.transpose(1, 2, 0)
+    plt.imshow(toplot)
+    return toplot, other 
 
 
 
